@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>THSC - Ranked Wordle</title>
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#eef1f5; --panel:#ffffff; --ink:#1c2430; --muted:#5d6878; --line:#c9d0da;
+  --green:#2f9e6b; --yellow:#d99a1c; --gray:#7b8594; --tile-ink:#ffffff; --key:#d8dee7; --err:#c0392b;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171c24; --panel:#212833; --ink:#e8ecf2; --muted:#9aa5b5; --line:#3a4453;
+    --green:#2f9e6b; --yellow:#c58a14; --gray:#566071; --key:#3a4453; --err:#ff8a7a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171c24; --panel:#212833; --ink:#e8ecf2; --muted:#9aa5b5; --line:#3a4453;
+  --green:#2f9e6b; --yellow:#c58a14; --gray:#566071; --key:#3a4453; --err:#ff8a7a; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none !important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:460px;margin:0 auto;padding:20px 14px 40px}
+main.wide{max-width:980px}
+h1{font-size:1.5rem;margin:0 0 4px;letter-spacing:.01em}
+h2{font-size:1.05rem;margin:22px 0 8px}
+.sub{margin:0 0 14px;color:var(--muted);font-size:.92rem}
+#msg{min-height:1.4em;text-align:center;font-weight:600;margin:0 0 6px}
+#clock{text-align:center;font-weight:700;font-variant-numeric:tabular-nums;margin:0}
+#clockNote{text-align:center;color:var(--muted);font-size:.82rem;min-height:1.2em;margin:2px 0 10px}
+#grid{display:grid;gap:6px;width:min(100%,320px);margin:0 auto 18px}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tile{aspect-ratio:1;display:grid;place-items:center;font-size:1.9rem;font-weight:800;
+  border:2px solid var(--line);background:var(--panel);border-radius:6px;text-transform:uppercase;
+  transition:background .35s ease,border-color .35s ease,color .35s ease}
+.tile.filled{border-color:var(--muted)}
+.tile.green{background:var(--green);border-color:var(--green);color:var(--tile-ink)}
+.tile.yellow{background:var(--yellow);border-color:var(--yellow);color:var(--tile-ink)}
+.tile.gray{background:var(--gray);border-color:var(--gray);color:var(--tile-ink)}
+.row.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@media (prefers-reduced-motion: reduce){.row.shake{animation:none}.tile{transition:none}}
+#kb{display:grid;gap:6px;margin-bottom:22px}
+.krow{display:flex;gap:5px;justify-content:center}
+.key{flex:1;max-width:42px;min-width:0;height:48px;border:0;border-radius:6px;background:var(--key);color:var(--ink);
+  font:inherit;font-weight:700;font-size:.85rem;cursor:pointer;padding:0}
+.key.wide{max-width:64px;flex:1.5}
+.key.green{background:var(--green);color:#fff}
+.key.yellow{background:var(--yellow);color:#fff}
+.key.gray{background:var(--gray);color:#fff}
+.key:focus-visible,button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.dev{background:var(--panel);border:1px dashed var(--muted);border-radius:8px;padding:12px 14px}
+.dev h2{margin:0 0 6px}
+.dev p{margin:4px 0;font-size:.88rem;color:var(--muted)}
+.btn,.dev button{font:inherit;font-size:.85rem;font-weight:600;padding:7px 12px;border-radius:6px;border:1px solid var(--line);
+  background:var(--key);color:var(--ink);cursor:pointer;margin:6px 6px 6px 0}
+.btn.danger{border-color:var(--err);color:var(--err)}
+#log{margin:8px 0 0;max-height:190px;overflow:auto;font:.8rem/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap;color:var(--ink)}
+#login{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:22px 20px;margin-top:8vh}
+#login h1{margin-bottom:14px}
+#login label{display:block;font-weight:600;font-size:.9rem;margin:12px 0 4px}
+#login input{width:100%;font:inherit;padding:10px 12px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#login input:focus-visible{outline:3px solid var(--yellow);outline-offset:1px}
+#login .go{width:100%;margin-top:18px;padding:11px;font:inherit;font-weight:700;border:0;border-radius:6px;background:var(--green);color:#fff;cursor:pointer}
+#loginErr{min-height:1.4em;margin:10px 0 0;color:var(--err);font-weight:600;font-size:.9rem}
+.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.linkbtn{font:inherit;font-size:.85rem;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;padding:4px}
+#aMsg{min-height:1.4em;font-weight:600}
+main.mid{max-width:720px}
+.lb-entry{display:flex;flex-wrap:wrap;gap:14px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 10px}
+.lb-rank{font-size:1.6rem;font-weight:800;min-width:2.8ch;text-align:center;font-variant-numeric:tabular-nums}
+.lb-info{flex:1;min-width:120px}
+.lb-name{font-weight:700}
+.lb-meta{color:var(--muted);font-size:.85rem}
+.mini{display:grid;gap:3px}
+.mrow{display:grid;grid-template-columns:repeat(5,26px);gap:3px}
+.mini .tile{font-size:.85rem;border-width:0;border-radius:3px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.82rem;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:700}
+tr:last-child td{border-bottom:0}
+</style>
+</head>
+<body>
+<main id="main">
+  <section id="login">
+    <h1>Sign in</h1>
+    <p class="sub">Use the username and password you were given.</p>
+    <form id="loginForm" autocomplete="off">
+      <label for="u">Username</label>
+      <input id="u" type="text" autocapitalize="none" required>
+      <label for="p">Password</label>
+      <input id="p" type="password" required>
+      <button class="go" type="submit">Sign in</button>
+      <p id="loginErr" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="game" hidden>
+    <div class="top"><h1>Ranked Word Game</h1><span><button class="linkbtn toBoard" type="button">Leaderboard</button> <button class="linkbtn logout" type="button">Log out</button></span></div>
+    <p class="sub" id="who"></p>
+    <p id="msg" role="status" aria-live="polite"></p>
+    <p id="clock">Total 0:00 · Since last guess 0:00</p>
+    <p id="clockNote"></p>
+    <div id="grid" aria-label="Guess grid"></div>
+    <div id="kb" aria-label="On-screen keyboard"></div>
+  </div>
+
+  <div id="admin" hidden>
+    <div class="top"><h1>Admin</h1><span><button class="linkbtn toBoard" type="button">Leaderboard</button> <button class="linkbtn logout" type="button">Log out</button></span></div>
+    <p class="sub" id="adminInfo"></p>
+    <button class="btn" id="aNew">New day</button>
+    <button class="btn danger" id="aPrev">Clear previous days’ stats</button>
+    <button class="btn danger" id="aAll">Clear ALL stats</button>
+    <button class="btn" id="aMode">Toggle answer mode (fixed / list)</button>
+    <button class="btn danger" id="aReset">Full reset: back to day 1, all words back in pool</button>
+    <button class="btn" id="aRefresh">Refresh</button>
+    <p id="aMsg" role="status"></p>
+    <h2>Totals per player</h2>
+    <div class="scroll" id="totals"></div>
+    <h2>Every game</h2>
+    <div class="scroll" id="games"></div>
+  </div>
+  <div id="board" hidden>
+    <div class="top"><h1>Leaderboard</h1><button class="linkbtn" id="boardBack" type="button">Back</button></div>
+    <p class="sub" id="boardMsg"></p>
+    <div id="boardList"></div>
+  </div>
+</main>
+
+<script>
+// ---------- CONFIG ----------
+const SUPABASE_URL = "https://ovgjmklmblslqjavxjjq.supabase.co".replace(/\/+$/, "");
+const SUPABASE_KEY = "sb_publishable_egK_IJUhf9dFOYMfgM5M7g_x31fxHJJ";
+const FUNCTION_URL = SUPABASE_URL + "/functions/v1/check-guess";
+const MAX_GUESSES = 6, LEN = 5;
+
+// ---------- STATE ----------
+let guesses = [], current = "", status = "playing", busy = false, loaded = false;
+let auth = null;
+const clock = {total: 0, since: 0, pending: 0};
+const $ = id => document.getElementById(id);
+const letterState = {};
+const rank = {gray:1, yellow:2, green:3};
+
+function show(which){
+  ["login", "game", "admin", "board"].forEach(id => $(id).hidden = id !== which);
+  $("main").classList.toggle("wide", which === "admin");
+  $("main").classList.toggle("mid", which === "board");
+}
+const fmt = ms => { const s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+
+// ---------- AUTH ----------
+async function signIn(username, password){
+  const r = await fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "apikey": SUPABASE_KEY},
+    body: JSON.stringify({email: username + "@wordle.test", password})
+  });
+  if (!r.ok) return null;
+  const d = await r.json();
+  return {token: d.access_token, exp: Date.now() + (d.expires_in || 3600) * 1000 - 30000, username};
+}
+function saveAuth(){ try { auth ? localStorage.setItem("wc_auth", JSON.stringify(auth)) : localStorage.removeItem("wc_auth"); } catch(e){} }
+function loadAuth(){
+  try { const a = JSON.parse(localStorage.getItem("wc_auth") || "null"); if (a && a.exp > Date.now()) return a; } catch(e){}
+  return null;
+}
+
+// ---------- SERVER ----------
+async function api(action, extra = {}){
+  const r = await fetch(FUNCTION_URL, {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": "Bearer " + auth.token},
+    body: JSON.stringify({action, ...extra})
+  });
+  if (r.status === 401 || r.status === 403){ const e = new Error("auth"); e.auth = true; throw e; }
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+
+function applyState(s){
+  const w = !!s.waiting; ["grid", "kb", "clock"].forEach(id => $(id).hidden = w);
+  if (w){
+    guesses = []; current = ""; status = "waiting"; loaded = true; clock.pending = 0;
+    $("who").textContent = `Signed in as ${s.username} (account ${s.account_id})`;
+    say(s.message || "Please wait until the season begins..."); render(); return;
+  }
+  guesses = s.guesses.map(g => ({word: g.word, fb: g.feedback}));
+  for (const k in letterState) delete letterState[k];
+  guesses.forEach(g => g.fb.forEach((c, i) => {
+    const ch = g.word[i];
+    if (!letterState[ch] || rank[c] > rank[letterState[ch]]) letterState[ch] = c;
+  }));
+  current = "";
+  status = (s.status === "won" || s.status === "lost") ? s.status : "playing";
+  clock.total = s.active_ms || 0; clock.since = s.since_last_ms || 0; clock.pending = 0;
+  loaded = true;
+  $("who").textContent = `Signed in as ${s.username} (account ${s.account_id}) · Ranked Season ${s.season}, day ${s.day_in_season}`;
+  if (status === "won") say(`Solved in ${guesses.length}.`);
+  else if (status === "lost") say("Out of guesses (X).");
+  else say(guesses.length ? `Resumed: ${guesses.length} of ${MAX_GUESSES} guesses used.` : "");
+  render();
+}
+
+async function enterApp(){
+  try {
+    const s = await api("state");
+    if (s.is_admin){ show("admin"); $("adminInfo").textContent = `Signed in as ${s.username}. Current puzzle date: ${s.puzzle_date}`; await loadAdmin(); }
+    else { show("game"); document.activeElement.blur(); applyState(s); log("Session loaded from server."); }
+  } catch (err){ handleError(err); }
+}
+
+function leaveApp(msg){
+  auth = null; saveAuth(); loaded = false;
+  show("login"); $("u").value = ""; $("p").value = ""; $("loginErr").textContent = msg || ""; $("u").focus();
+}
+function handleError(err){
+  if (err.auth){ leaveApp("Session expired. Sign in again."); return; }
+  say("Can’t reach the server. See the dev log."); log("Error: " + err.message);
+}
+
+// ---------- GAME RENDERING ----------
+function build(){
+  for (let r = 0; r < MAX_GUESSES; r++){
+    const row = document.createElement("div"); row.className = "row"; row.id = "row" + r;
+    for (let c = 0; c < LEN; c++){ const t = document.createElement("div"); t.className = "tile"; row.appendChild(t); }
+    $("grid").appendChild(row);
+  }
+  ["QWERTYUIOP","ASDFGHJKL","ENTER ZXCVBNM BACK"].forEach(line => {
+    const kr = document.createElement("div"); kr.className = "krow";
+    line.split(" ").forEach(part => {
+      const keys = (part === "ENTER" || part === "BACK") ? [part] : part.split("");
+      keys.forEach(k => {
+        const b = document.createElement("button");
+        b.className = "key" + (k.length > 1 ? " wide" : "");
+        b.dataset.key = k; b.textContent = k === "BACK" ? "⌫" : k;
+        b.setAttribute("aria-label", k === "BACK" ? "Backspace" : k);
+        b.onclick = () => press(k);
+        kr.appendChild(b);
+      });
+    });
+    $("kb").appendChild(kr);
+  });
+}
+function render(){
+  for (let r = 0; r < MAX_GUESSES; r++){
+    const tiles = $("row" + r).children;
+    for (let c = 0; c < LEN; c++){
+      let ch = "", cls = "tile";
+      if (r < guesses.length){ ch = guesses[r].word[c]; cls += " " + guesses[r].fb[c]; }
+      else if (r === guesses.length && status === "playing" && current[c]){ ch = current[c]; cls += " filled"; }
+      tiles[c].className = cls; tiles[c].textContent = ch;
+    }
+  }
+  document.querySelectorAll(".key").forEach(b => {
+    const s = letterState[b.dataset.key];
+    b.className = "key" + (b.dataset.key.length > 1 ? " wide" : "") + (s ? " " + s : "");
+  });
+}
+function say(t){ $("msg").textContent = t; }
+function log(t){ const l = $("log"); if (!l) return; l.textContent += t + "\n"; l.scrollTop = l.scrollHeight; }
+function shake(){ const row = $("row" + Math.min(guesses.length, MAX_GUESSES - 1)); row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake"); }
+
+// ---------- TIMER (counts only while this page is visible and focused) ----------
+const isActive = () => document.visibilityState === "visible" && document.hasFocus();
+let lastTick = performance.now();
+setInterval(() => {
+  const now = performance.now(); const dt = Math.min(now - lastTick, 1000); lastTick = now;
+  if ($("game").hidden) return;
+  const running = !!auth && loaded && status === "playing";
+  const active = isActive();
+  if (running && active){ clock.total += dt; clock.since += dt; clock.pending += dt; }
+  $("clock").textContent = `Total ${fmt(clock.total)} · Since last guess ${fmt(clock.since)}`;
+  $("clockNote").textContent = (!loaded || status === "waiting") ? "" : status !== "playing" ? "Final time." : active ? "" : "Timer paused while you’re off this page.";
+}, 250);
+setInterval(async () => {                       // save elapsed time to the server every 5 seconds
+  if (!auth || $("game").hidden || !loaded || status !== "playing" || busy) return;
+  const send = Math.round(clock.pending); if (send < 1000) return;
+  clock.pending -= send;
+  try { await api("tick", {ms: send}); } catch (e){ clock.pending += send; if (e.auth) handleError(e); }
+}, 5000);
+
+// ---------- INPUT ----------
+function press(k){
+  if (status !== "playing" || busy || !loaded) return;
+  say("");
+  if (k === "BACK" || k === "Backspace"){ current = current.slice(0, -1); }
+  else if (k === "ENTER" || k === "Enter"){ submit(); return; }
+  else if (/^[A-Za-z]$/.test(k) && current.length < LEN){ current += k.toUpperCase(); }
+  render();
+}
+async function submit(){
+  if (busy) return;
+  if (current.length < LEN){ say("Needs 5 letters."); shake(); return; }
+  busy = true; say("Checking…");
+  const delta = Math.round(clock.pending); clock.pending -= delta;
+  let res;
+  try { res = await api("guess", {guess: current, active_ms_delta: delta}); }
+  catch (err){ clock.pending += delta; busy = false; handleError(err); return; }
+  busy = false;
+  if (res.waiting){ say(res.message); return; }
+  if (!res.valid){ say(res.message || "Not accepted."); shake(); log(`${current}: ${res.message}`); return; }
+
+  guesses.push({word: current, fb: res.feedback});
+  res.feedback.forEach((s, i) => {
+    const ch = current[i];
+    if (!letterState[ch] || rank[s] > rank[letterState[ch]]) letterState[ch] = s;
+  });
+  clock.total = res.active_ms; clock.since = 0;
+  const sym = {green:"G", yellow:"Y", gray:"-"};
+  log(`Guess ${res.attempt}: ${current}  ${res.feedback.map(s => sym[s]).join(" ")}  (+${fmt(res.since_last_ms)})`);
+  status = (res.status === "won" || res.status === "lost") ? res.status : "playing";
+  if (status === "won") say(`Solved in ${guesses.length}.`);
+  else if (status === "lost") say("Out of guesses (X).");
+  else say("");
+  current = ""; render();
+}
+document.addEventListener("keydown", e => {
+  if ($("game").hidden) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Enter" && document.activeElement && document.activeElement.tagName === "BUTTON") return;
+  if (e.key === "Enter" || e.key === "Backspace" || /^[A-Za-z]$/.test(e.key)) press(e.key);
+});
+
+// ---------- ADMIN ----------
+function renderTable(el, rows, cols){
+  el.textContent = "";
+  if (!rows.length){ el.textContent = "No data yet."; el.style.padding = "10px"; return; }
+  el.style.padding = "0";
+  const t = document.createElement("table"), head = t.createTHead().insertRow();
+  cols.forEach(([, label]) => { const th = document.createElement("th"); th.textContent = label; head.appendChild(th); });
+  const body = t.createTBody();
+  rows.forEach(r => { const tr = body.insertRow(); cols.forEach(([k]) => { tr.insertCell().textContent = r[k] ?? "–"; }); });
+  el.appendChild(t);
+}
+async function loadAdmin(){
+  const d = await api("admin_stats");
+  $("adminInfo").textContent = `Puzzle date ${d.puzzle_date} · Ranked Season ${d.season}, day ${d.day_in_season} · Answer mode: ${d.pool?.mode} · Words used ${d.pool?.used}/${d.pool?.total}` +
+    (d.answer_is_set ? "" : " · WORD POOL EXHAUSTED: players see “Please wait until the season begins...”");
+  renderTable($("totals"), d.totals, [["username","Player"],["season","Season"],["crowns","Crowns (wins)"],
+    ["successes","Successes"],["completions","Completions"],["x_fails","X (failed)"],["dnf","DNF"],["attempts","Attempts"],
+    ["perfect","Perfect 1/6"],["birdie","Birdie 2/6"],["above_par","Above par 3/6"],["par","Par 4/6"],
+    ["subpar","Subpar 5/6"],["close_call","Close call 6/6"],["win_rate","Win (crown) rate"],
+    ["success_rate","Success rate"],["avg_guess","Avg guess"],["total_time","Total time"]]);
+  renderTable($("games"), d.games, [["puzzle_date","Day"],["username","Player"],["result","Result (X / DNF)"],
+    ["crown","Crown"],["perfect","Perfect"],["birdie","Birdie"],["above_par","Above par"],["par","Par"],
+    ["subpar","Subpar"],["close_call","Close call"],["total_time","Time on page"],
+    ["wall_time","Wall-clock time"],["guess_history","Guesses (G/Y/X, time since previous)"]]);
+}
+async function adminDo(action, label, needsConfirm){
+  if (needsConfirm && !confirm(needsConfirm)) return;
+  try {
+    const r = await api(action);
+    $("aMsg").textContent = action === "new_day" ? `New day started: ${r.puzzle_date}` : label;
+    await loadAdmin();
+  } catch (err){ if (err.auth) handleError(err); else $("aMsg").textContent = "Error: " + err.message; }
+}
+$("aNew").onclick = () => adminDo("new_day", "");
+$("aPrev").onclick = () => adminDo("clear_previous", "Previous days’ stats cleared.", "Delete stats for every day except the current one?");
+$("aAll").onclick = () => adminDo("clear_all", "All stats cleared.", "Delete ALL game stats, including today’s?");
+$("aMode").onclick = () => adminDo("toggle_mode", "Answer mode switched.");
+$("aReset").onclick = () => adminDo("reset_days", "All days, stats and word tracking reset.", "Delete ALL days, stats and word-pool history, and start again at day 1?");
+$("aRefresh").onclick = () => loadAdmin().catch(handleError);
+
+// ---------- LEADERBOARD (previous day only) ----------
+let lastView = "game";
+async function openBoard(){
+  lastView = $("admin").hidden ? "game" : "admin";
+  show("board"); $("boardMsg").textContent = "Loading…"; $("boardList").textContent = "";
+  try { renderBoard(await api("leaderboard")); }
+  catch (err){ if (err.auth) handleError(err); else $("boardMsg").textContent = "Can’t load the leaderboard."; }
+}
+function renderBoard(d){
+  const list = $("boardList"); list.textContent = "";
+  if (!d.available){ $("boardMsg").textContent = d.message; return; }
+  $("boardMsg").textContent = `Previous day: Ranked Season ${d.season}, day ${d.day_in_season} (${d.puzzle_date})` + (d.answer ? ` · Answer: ${d.answer}` : "");
+  if (!d.entries.length){ list.textContent = "Nobody played that day."; return; }
+  d.entries.forEach(e => {
+    const row = document.createElement("div"); row.className = "lb-entry";
+    const rank = document.createElement("div"); rank.className = "lb-rank"; rank.textContent = e.rank_label || "–";
+    const info = document.createElement("div"); info.className = "lb-info";
+    const name = document.createElement("div"); name.className = "lb-name"; name.textContent = e.username + (e.rank_label === "1" || e.rank_label === "1T" ? "  (Crown)" : "");
+    const meta = document.createElement("div"); meta.className = "lb-meta";
+    const result = e.outcome === "success" ? `${e.guesses}/6` : e.outcome === "fail" ? "X/6" : "DNF";
+    meta.textContent = `${result} · ${fmt(e.active_ms)}`;
+    info.append(name, meta);
+    const mini = document.createElement("div"); mini.className = "mini";
+    e.board.forEach(g => {
+      const r = document.createElement("div"); r.className = "mrow";
+      g.word.split("").forEach((ch, i) => { const t = document.createElement("div"); t.className = "tile " + g.feedback[i]; t.textContent = ch; r.appendChild(t); });
+      mini.appendChild(r);
+    });
+    row.append(rank, info, mini); list.appendChild(row);
+  });
+}
+document.querySelectorAll(".toBoard").forEach(b => b.onclick = openBoard);
+$("boardBack").onclick = () => show(lastView);
+
+// ---------- WIRING ----------
+$("loginForm").onsubmit = async e => {
+  e.preventDefault();
+  $("loginErr").textContent = "Signing in…";
+  const username = $("u").value.trim().toLowerCase();
+  let a;
+  try { a = await signIn(username, $("p").value); }
+  catch (err){ $("loginErr").textContent = "Can’t reach the server."; return; }
+  if (!a){ $("loginErr").textContent = "Wrong username or password."; $("p").value = ""; $("p").focus(); return; }
+  auth = a; saveAuth(); $("loginErr").textContent = ""; $("p").value = "";
+  enterApp();
+};
+document.querySelectorAll(".logout").forEach(b => b.onclick = () => leaveApp(""));
+
+build(); render(); show("login");
+auth = loadAuth();
+if (auth) enterApp(); else $("u").focus();
+</script>
+</body>
+</html>
